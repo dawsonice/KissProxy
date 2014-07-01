@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">KissProxy</string>
+    <string name="proxy_on">代理运行中，点击关闭</string>
+    <string name="proxy_off">代理已停止，点击开启</string>
+    <string name="service_text">代理正在运行，点击进入管理面板。</string>
+    <string name="proxy_started">代理运行中</string>
+    <string name="proxy_stopped">代理已停止</string>
+
+</resources>
