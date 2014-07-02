@@ -48,12 +48,11 @@ public class ChannelPair implements ChannelListener {
 
 		if (requestChannel != null
 				&& key.equals(requestChannel.getSelectionKey())) {
-			// Log.d(TAG, "request channel on select");
 			requestChannel.read();
 		} else if (responseChannel != null
 				&& key.equals(responseChannel.getSelectionKey())) {
-			// Log.d(TAG, "response channel on select");
 			responseChannel.read();
+			requestChannel.reset();
 		}
 	}
 
@@ -87,31 +86,36 @@ public class ChannelPair implements ChannelListener {
 			String host = null;
 			int port;
 			String method = channel.getMethod();
-			SocketChannel socketChannel = null;
 
-			if ("CONNECT".equals(method)) {
-				host = channel.getHost();
-				port = channel.getPort();
-				socketChannel = connect(host, port);
+			if (responseChannel == null) {
+				SocketChannel socketChannel = null;
+				if ("CONNECT".equals(method)) {
+					host = channel.getHost();
+					port = channel.getPort();
+					socketChannel = connect(host, port);
+				} else {
+					host = channel.getHost();
+					port = channel.getPort();
+					socketChannel = connect(host, port);
+				}
+
+				if (socketChannel == null) {
+					return false;
+				}
+
+				responseChannel = new Channel(false);
+				responseChannel.setListener(this);
+				responseChannel.setSocket(socketChannel);
+
+				Selector selector = ProxyServer.getInstance().getSeletor();
+				SelectionKey sk = socketChannel.register(selector,
+						SelectionKey.OP_READ, this);
+
+				responseChannel.setSelectionKey(sk);
 			} else {
-				host = channel.getHost();
-				port = channel.getPort();
-				socketChannel = connect(host, port);
+				Log.d(TAG, "reuse socket " + responseChannel.getName());
+				responseChannel.reset();
 			}
-
-			if (socketChannel == null) {
-				return false;
-			}
-
-			responseChannel = new Channel(false);
-			responseChannel.setListener(this);
-			responseChannel.setSocket(socketChannel);
-
-			Selector selector = ProxyServer.getInstance().getSeletor();
-			SelectionKey sk = socketChannel.register(selector,
-					SelectionKey.OP_READ, this);
-
-			responseChannel.setSelectionKey(sk);
 
 			StringBuffer stringBuffer = new StringBuffer();
 			if ("CONNECT".equals(method)) {
@@ -141,7 +145,7 @@ public class ChannelPair implements ChannelListener {
 				Log.d(TAG, text);
 				byte[] sendBytes = text.getBytes();
 				ByteBuffer byteBuffer = ByteBuffer.wrap(sendBytes);
-				socketChannel.write(byteBuffer);
+				responseChannel.write(byteBuffer);
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "establish response exception", e);

@@ -20,6 +20,7 @@ public class Channel {
 	private static Pattern HTTPS_PATTERN = Pattern.compile("(.*):([\\d]+)");
 	private static Pattern HTTP_PATTERN = Pattern
 			.compile("(https?)://([^:/]+)(:[\\d]+])?/.*");
+	private static int INDEX = 0;
 
 	public enum Status {
 		STATUS_LINE, HEADERS, CONTENT
@@ -43,14 +44,21 @@ public class Channel {
 	private int statusCode;
 	private String url;
 	private RequestStatusLine sl;
+	private String channelName;
 
 	public Channel(boolean req) {
-		lastActive = System.currentTimeMillis();
-		status = Status.STATUS_LINE;
-		readOffset = 0;
 		readBuf = new char[1024];
-		request = req;
 		headers = new HashMap<String, String>();
+		request = req;
+		channelName = "channel" + (INDEX++);
+		reset();
+	}
+
+	public void reset() {
+		lastActive = System.currentTimeMillis();
+		readOffset = 0;
+		status = Status.STATUS_LINE;
+		headers.clear();
 	}
 
 	public void setSocket(SocketChannel socket) {
@@ -91,20 +99,19 @@ public class Channel {
 
 	public void read() {
 		int count = 0;
-
 		getSocketBuffer();
 		socketBuffer.clear();
 		try {
 			count = socket.read(socketBuffer);
 		} catch (IOException e) {
-			Log.e(TAG, "socket read exception.", e);
+			Log.e(TAG, channelName + " read exception.", e);
 		}
 
 		socketBuffer.flip();
 		int datasize = socketBuffer.limit() - socketBuffer.position();
-		// String r = request ? "request" : "response";
-		// Log.d(TAG, r + " socket read count " + count + " datasize " +
-		// datasize);
+		String r = request ? "request" : "response";
+		Log.d(TAG, r + " " + channelName + " read count " + count
+				+ " datasize " + datasize);
 		if (count == -1) {
 			if (listener != null) {
 				listener.onClose(this);
@@ -151,7 +158,6 @@ public class Channel {
 				listener.onContent(this);
 			}
 		}
-		// socketBuffer.clear();
 	}
 
 	private void setStatusLine(String line) {
@@ -176,18 +182,19 @@ public class Channel {
 
 		int index = line.indexOf(":");
 		if (index <= 0 || index >= line.length()) {
-			Log.w(TAG, "invalid header content " + line);
+			Log.w(TAG, channelName + " invalid header content " + line);
 			return;
 		}
 
 		String name = line.substring(0, index);
 		String value = line.substring(index + 1).trim();
 		if (TextUtils.isEmpty(name) || TextUtils.isEmpty(value)) {
-			Log.w(TAG, "invalie header value");
+			Log.w(TAG, channelName + " +invalie header value");
 			return;
 		}
 
-		Log.d(TAG, "addHeader [name] " + name + " [value] " + value);
+		Log.d(TAG, channelName + " addHeader [name] " + name + " [value] "
+				+ value);
 		headers.put(name, value);
 	}
 
@@ -227,7 +234,7 @@ public class Channel {
 		try {
 			count = socket.write(b);
 		} catch (IOException e) {
-			Log.e(TAG, "socket write exception.", e);
+			Log.e(TAG, channelName + "  write exception.", e);
 		}
 		return count;
 	}
@@ -244,11 +251,11 @@ public class Channel {
 
 	public void close() {
 		try {
-			Log.d(TAG, "close socket " + (index++));
+			Log.d(TAG, channelName + " close socket " + (index++));
 			selectionKey.cancel();
 			socket.close();
 		} catch (Exception e) {
-			Log.e(TAG, "close socket exception", e);
+			Log.e(TAG, channelName + " close exception", e);
 		}
 	}
 
@@ -287,11 +294,11 @@ public class Channel {
 	}
 
 	public String getHost() {
-		if (!request || !TextUtils.isEmpty(host)) {
-			return host;
+		if (!request) {
+			return null;
 		}
-		String u = getUrl();
 
+		String u = getUrl();
 		if ("CONNECT".equals(method)) {
 			Matcher m = HTTPS_PATTERN.matcher(u);
 			if (m.matches()) {
@@ -317,22 +324,24 @@ public class Channel {
 	}
 
 	public int getPort() {
-		if (!request || port != 0) {
-			return port;
+		if (port == 0) {
+			getHost();
 		}
 
 		return port;
 	}
 
+	public void setPort(int p) {
+		this.port = p;
+	}
+
 	public String getUrl() {
-		if (TextUtils.isEmpty(url)) {
-			String uri = sl.getUri();
-			if (uri != null && !uri.startsWith("/")) {
-				url = uri;
-			} else {
-				String h = getHeaders().get("Host");
-				url = h + uri;
-			}
+		String uri = sl.getUri();
+		if (uri != null && !uri.startsWith("/")) {
+			url = uri;
+		} else {
+			String h = getHeaders().get("Host");
+			url = h + uri;
 		}
 		return url;
 	}
@@ -342,5 +351,9 @@ public class Channel {
 			socketBuffer = ByteBuffer.allocate(BUFFER_SIZE);
 		}
 		return socketBuffer;
+	}
+
+	public String getName() {
+		return channelName;
 	}
 }
