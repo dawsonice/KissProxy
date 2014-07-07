@@ -43,7 +43,7 @@ public class Channel {
 	private ChannelListener listener;
 	private int statusCode;
 	private String url;
-	private RequestStatusLine sl;
+	private RequestLine sl;
 	private String channelName;
 
 	public Channel(boolean req) {
@@ -51,13 +51,17 @@ public class Channel {
 		headers = new HashMap<String, String>();
 		request = req;
 		channelName = "channel" + (INDEX++);
+		readOffset = 0;
 		reset();
 	}
 
 	public void reset() {
 		lastActive = System.currentTimeMillis();
-		readOffset = 0;
-		status = Status.STATUS_LINE;
+		if ("CONNECT".equals(method)) {
+			status = Status.CONTENT;
+		} else {
+			status = Status.STATUS_LINE;
+		}
 		headers.clear();
 	}
 
@@ -161,12 +165,13 @@ public class Channel {
 	}
 
 	private void setStatusLine(String line) {
+		Log.d(TAG, channelName + " setStatusLine " + line);
 		statusLine = line;
 		if (request) {
-			sl = new RequestStatusLine(line);
+			sl = new RequestLine(line);
 			method = sl.getMethod();
 		} else {
-			ResponseStatusLine sl = new ResponseStatusLine(line);
+			ResponseLine sl = new ResponseLine(line);
 			statusCode = sl.getStatusCode();
 		}
 	}
@@ -259,30 +264,28 @@ public class Channel {
 		}
 	}
 
-	/**
-	 * @return the method
-	 */
 	public String getMethod() {
 		return method;
 	}
 
-	/**
-	 * @return the listener
-	 */
 	public ChannelListener getListener() {
 		return listener;
 	}
 
-	/**
-	 * @param listener
-	 *            the listener to set
-	 */
 	public void setListener(ChannelListener listener) {
 		this.listener = listener;
 	}
 
 	public Map<String, String> getHeaders() {
 		return headers;
+	}
+
+	public String getHeader(String key) {
+		if (headers == null || TextUtils.isEmpty(key)) {
+			return null;
+		}
+
+		return headers.get(key);
 	}
 
 	public int getStatusCode() {
@@ -355,5 +358,12 @@ public class Channel {
 
 	public String getName() {
 		return channelName;
+	}
+
+	public String getProtocol() {
+		if (sl == null) {
+			return null;
+		}
+		return sl.getVersion();
 	}
 }

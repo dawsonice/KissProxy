@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import me.dawson.proxyserver.core.Channel.Status;
-import android.net.Uri;
 import android.util.Log;
 
 public class ChannelPair implements ChannelListener {
@@ -127,14 +126,16 @@ public class ChannelPair implements ChannelListener {
 			} else {
 				stringBuffer.append(method + " ");
 				String url = channel.getUrl();
-				Uri uri = Uri.parse(url);
-				String path = uri.getPath();
-				stringBuffer.append(path).append(" ").append("HTTP/1.1")
-						.append(CRLF);
+
+				if (!url.startsWith("/")) {
+					// remove scheme and host
+					url = url.substring(url.indexOf('/', 8));
+				}
+				Log.d(TAG, "connResponse " + url);
+				stringBuffer.append(url).append(" ")
+						.append(channel.getProtocol()).append(CRLF);
 				Map<String, String> headers = channel.getHeaders();
 				Iterator<String> iterator = headers.keySet().iterator();
-				stringBuffer.append("spdy-proxy-url: ").append(url)
-						.append(CRLF);
 				while (iterator.hasNext()) {
 					String key = iterator.next();
 					stringBuffer.append(key).append(": ")

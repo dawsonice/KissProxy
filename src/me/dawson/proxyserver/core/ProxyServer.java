@@ -16,11 +16,13 @@ public class ProxyServer {
 	private static final int DEFAULT_PORT = 8964;
 	private static final int MAX_PORT = 20146; // real max can be 65535
 
-	private static ProxyServer instance;
+	private static volatile ProxyServer instance;
 
 	public static ProxyServer getInstance() {
-		if (instance == null) {
-			instance = new ProxyServer();
+		synchronized (ProxyServer.class) {
+			if (instance == null) {
+				instance = new ProxyServer();
+			}
 		}
 		return instance;
 	}
